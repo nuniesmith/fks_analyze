@@ -1,0 +1,86 @@
+services:
+  fks_analyze:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: fks_analyze
+        SERVICE_TYPE: analyze
+        SERVICE_PORT: 4802
+        SERVICE_FEATURES: server
+    working_dir: /app
+    environment:
+      TZ: America/Toronto
+      SERVICE_PORT: 4802
+      RUST_LOG: info
+      FKS_ROOT: /fks_root
+      # Enrichment (optional transformer / Ollama-compatible)
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:4500}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-mistral}
+    ports:
+      - "4802:4802"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - rust_target:/app/target
+      - ../:/fks_root:ro
+    networks:
+      - fks_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4802/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    command: ["serve", "--port", "4802"]
+
+  fks_analyze_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+      args:
+        SERVICE_NAME: fks_analyze_bot
+        SERVICE_TYPE: bot
+        SERVICE_PORT: 4801
+        SERVICE_FEATURES: "server,discord"
+    environment:
+      TZ: America/Toronto
+      SERVICE_PORT: 4801
+      RUST_LOG: info,analyze_script=debug
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?err}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_CHANNEL_ID: ${DISCORD_CHANNEL_ID:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:4500}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-mistral}
+      FKS_ANALYZE_SCRIPT: /app/analyze_codebase.sh
+      FKS_ROOT: /fks_root
+      ANALYZE_TMP_BASE: /tmp/fks_analysis
+    depends_on:
+      - fks_analyze
+    networks:
+      - fks_net
+    volumes:
+      - ./shared:/app/shared:ro
+      - ./shared/repos/shared_scripts/utils/analyze_codebase.sh:/app/analyze_codebase.sh:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ../:/fks_root:ro
+      - fks_analysis_tmp:/tmp/fks_analysis
+    command: ["bot"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4801/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+volumes:
+  rust_target:
+  fks_analysis_tmp:
+
+networks:
+  fks_net:
+    name: fks_net
+    external: true

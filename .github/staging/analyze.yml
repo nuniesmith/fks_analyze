@@ -1,0 +1,38 @@
+name: FKS Analyze
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build analyzer
+        run: cargo build --package fks_analyze --features semantic --quiet
+      - name: Run pipeline
+        run: ./target/debug/fks_analyze pipeline --content-bytes 2048 --save-scan --save-findings || true
+      - name: Generate report
+        run: ./target/debug/fks_analyze report --focus-limit 12 --trend 20 --content-bytes 2048 --output FKS_ANALYZE_REPORT.md || true
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyze-report
+          path: FKS_ANALYZE_REPORT.md
