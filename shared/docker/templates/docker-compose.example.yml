@@ -32,7 +32,7 @@ services:
   fks-api:
     build:
       context: ./fks_api
-      dockerfile: ../shared/shared_docker/templates/Dockerfile.python
+      dockerfile: ../shared/docker/templates/Dockerfile.python
       args:
         PYTHON_VERSION: 3.13
         BUILD_TYPE: cpu
@@ -64,7 +64,7 @@ services:
   fks-engine:
     build:
       context: ./fks_engine
-      dockerfile: ../shared/shared_docker/templates/Dockerfile.rust
+      dockerfile: ../shared/docker/templates/Dockerfile.rust
       args:
         RUST_VERSION: 1.81
         SERVICE_PORT: 8080
@@ -88,7 +88,7 @@ services:
   fks-ninja:
     build:
       context: ./fks_ninja
-      dockerfile: ../shared/shared_docker/templates/Dockerfile.dotnet
+      dockerfile: ../shared/docker/templates/Dockerfile.dotnet
       args:
         DOTNET_VERSION: 9.0
         SERVICE_PORT: 8090
@@ -112,7 +112,7 @@ services:
   fks-web:
     build:
       context: ./fks_web
-      dockerfile: ../shared/shared_docker/templates/Dockerfile.node
+      dockerfile: ../shared/docker/templates/Dockerfile.node
       args:
         NODE_VERSION: 22
         SERVICE_PORT: 3000

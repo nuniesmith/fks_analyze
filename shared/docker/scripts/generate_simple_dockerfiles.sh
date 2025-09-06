@@ -66,7 +66,7 @@ This service supports two build strategies:
    docker build -f Dockerfile.simple -t ${svc}:simple .
 
 2. Unified (full multi-runtime + GPU support) shared file:
-   docker build -f ../../shared/shared_docker/Dockerfile -t ${svc}:unified \
+   docker build -f ../../shared/docker/Dockerfile -t ${svc}:unified \
      --build-arg SERVICE_RUNTIME=${runtime} .
 
 Default repository Dockerfile may still be the unified version; adopt the simple one by renaming if desired.
