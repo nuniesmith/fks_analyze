@@ -115,18 +115,18 @@ fn find_script(root: &str) -> Result<PathBuf> {
     }
     // Candidate search order
     let candidates = [
-        "shared/shared_scripts/utils/analyze_codebase.sh",
-        "shared/shared_scripts/devtools/analysis/analyze_codebase.sh",
+        "shared/scripts/utils/analyze_codebase.sh",
+        "shared/scripts/devtools/analysis/analyze_codebase.sh",
         "shared_scripts/utils/analyze_codebase.sh",
         "shared_scripts/devtools/analysis/analyze_codebase.sh",
         "shared_repos/shared_scripts/utils/analyze_codebase.sh",
         "shared_repos/shared_scripts/devtools/analysis/analyze_codebase.sh",
-        "../shared/shared_scripts/utils/analyze_codebase.sh",
-        "../shared/shared_scripts/devtools/analysis/analyze_codebase.sh",
+        "../shared/scripts/utils/analyze_codebase.sh",
+        "../shared/scripts/devtools/analysis/analyze_codebase.sh",
     ];
     let abs_candidates = [
-        "/app/shared/shared_scripts/utils/analyze_codebase.sh",
-        "/app/shared/shared_scripts/devtools/analysis/analyze_codebase.sh",
+        "/app/shared/scripts/utils/analyze_codebase.sh",
+        "/app/shared/scripts/devtools/analysis/analyze_codebase.sh",
     "/app/analyze_codebase.sh",
     ];
     let mut tried: Vec<PathBuf> = Vec::new();

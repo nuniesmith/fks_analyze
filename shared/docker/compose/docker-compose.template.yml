@@ -1,4 +1,4 @@
-# Central template for services using shared/shared_docker/Dockerfile
+# Central template for services using shared/docker/Dockerfile
 # Usage:
 #   cp docker-compose.template.yml docker-compose.override.yml
 #   Adjust contexts and SERVICE_TYPE/SERVICE_RUNTIME per service.

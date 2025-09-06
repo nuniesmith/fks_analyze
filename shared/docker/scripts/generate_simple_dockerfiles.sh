@@ -3,10 +3,10 @@ set -euo pipefail
 
 # Generates simplified Dockerfiles per service based on runtime mapping.
 # It WILL NOT overwrite an existing Dockerfile unless --force is provided.
-# Advanced unified build remains available at shared/shared_docker/Dockerfile.
+# Advanced unified build remains available at shared/docker/Dockerfile.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-TEMPLATE_DIR="$ROOT_DIR/shared/shared_docker/templates"
+TEMPLATE_DIR="$ROOT_DIR/shared/docker/templates"
 FORCE=0
 
 usage(){

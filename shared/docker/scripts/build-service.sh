@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # build-service.sh
-# Unified builder for services using shared/shared_docker/Dockerfile
+# Unified builder for services using shared/docker/Dockerfile
 #
 # Usage:
 #   ./build-service.sh <service_path> [--runtime python] [--type api] [--gpu] [--tag myimage:dev] [--no-cache] [--arg KEY=VALUE]...
@@ -23,9 +23,9 @@ if [[ ${1:-} == "-h" || ${1:-} == "--help" || $# -lt 1 ]]; then
 fi
 
 WORKSPACE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SHARED_DOCKERFILE="$WORKSPACE_ROOT/shared/shared_docker/Dockerfile"
+SHARED_DOCKERFILE="$WORKSPACE_ROOT/shared/docker/Dockerfile"
 if [[ ! -f "$SHARED_DOCKERFILE" ]]; then
-  # If we are inside the shared/shared_docker repo itself, workspace root is its parent directory
+  # If we are inside the shared/docker repo itself, workspace root is its parent directory
   if [[ -f "$WORKSPACE_ROOT/Dockerfile" && $(basename "$WORKSPACE_ROOT") == "shared_docker" ]]; then
     WORKSPACE_ROOT=$(dirname "$WORKSPACE_ROOT")
   fi
@@ -37,7 +37,7 @@ SERVICE_PATH=$1; shift || true
 if [[ ! -d "$SERVICE_PATH" ]]; then
   echo "[error] service path $SERVICE_PATH does not exist" >&2; exit 1;
 fi
-SHARED_DOCKERFILE="$WORKSPACE_ROOT/shared/shared_docker/Dockerfile"
+SHARED_DOCKERFILE="$WORKSPACE_ROOT/shared/docker/Dockerfile"
 
 RUNTIME="python"
 TYPE="app"

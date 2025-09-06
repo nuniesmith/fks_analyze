@@ -10,7 +10,7 @@ TARGET_DIRS = [
     os.path.join(ROOT, 'fks'),
     os.path.join(ROOT, 'personal'),
 ]
-IGNORE = {'shared/shared_docker/Dockerfile'}
+IGNORE = {'shared/docker/Dockerfile'}
 
 PATTERNS = {
     'python_poetry': re.compile(r'poetry (install|lock)') ,

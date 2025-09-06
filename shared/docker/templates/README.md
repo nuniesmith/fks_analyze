@@ -32,7 +32,7 @@ These templates are **service-agnostic bases** that provide:
 
 ### Build All Templates
 ```bash
-cd shared/shared_docker/templates
+cd shared/docker/templates
 ./build-images.sh base python rust dotnet node nginx
 ```
 
@@ -362,7 +362,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build images
         run: |
-          cd shared/shared_docker/templates
+          cd shared/docker/templates
           ./build-images.sh --version ${{ github.sha }} --push
 ```
 
@@ -372,7 +372,7 @@ services:
   fks-api:
     build:
       context: .
-      dockerfile: shared/shared_docker/templates/Dockerfile.python.improved
+      dockerfile: shared/docker/templates/Dockerfile.python.improved
       args:
         BUILD_TYPE: cpu
     ports:

@@ -8,7 +8,7 @@ services:
   nginx-proxy:
     build:
       context: .
-      dockerfile: shared/shared_docker/templates/Dockerfile.nginx
+      dockerfile: shared/docker/templates/Dockerfile.nginx
       args:
         NGINX_VERSION: 1.27.1
         SERVICE_PORT: 80
