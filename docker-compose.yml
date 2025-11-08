@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  analyze:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nuniesmith/fks_analyze:latest
+    container_name: fks_analyze
+    ports:
+      - "8008:8008"
+    environment:
+      - DEBUG=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - /home/jordan/Documents/code/fks:/workspace:ro
+    networks:
+      - fks_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: fks_analyze_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - fks_network
+    restart: unless-stopped
+
+networks:
+  fks_network:
+    driver: bridge
