@@ -10,6 +10,9 @@ import asyncio
 from collections import defaultdict
 
 from src.core.config import get_settings
+from src.services.ai_analyzer import AIAnalyzerService
+from src.services.retrieval import RetrievalService
+from src.services.rag_pipeline import RAGPipelineService
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,9 @@ class AnalyzerService:
         self.settings = get_settings()
         self.jobs: Dict[str, Dict[str, Any]] = {}
         self.results: Dict[str, Dict[str, Any]] = {}
+        self.ai_analyzer = AIAnalyzerService()
+        self.retrieval_service = RetrievalService()
+        self.rag_pipeline = RAGPipelineService()
         logger.info("AnalyzerService initialized")
     
     async def run_analysis(
@@ -30,7 +36,10 @@ class AnalyzerService:
         repository_path: str,
         include_mermaid: bool = False,
         include_lint: bool = False,
-        exclude_patterns: Optional[List[str]] = None
+        exclude_patterns: Optional[List[str]] = None,
+        enable_ai: bool = False,
+        ai_analysis_type: str = "project_management",
+        ai_prompt: Optional[str] = None
     ) -> None:
         """
         Run repository analysis (background task).
@@ -41,6 +50,9 @@ class AnalyzerService:
             include_mermaid: Generate Mermaid diagrams
             include_lint: Run linting
             exclude_patterns: Additional exclude patterns
+            enable_ai: Enable AI-powered analysis using Google AI API
+            ai_analysis_type: Type of AI analysis (project_management, standardization, documentation)
+            ai_prompt: Custom prompt for AI analysis
         """
         try:
             # Update job status
@@ -103,6 +115,44 @@ class AnalyzerService:
                 results["analysis"]["diagrams"] = await self._generate_diagrams(
                     repo_path, exclude
                 )
+            
+            # Step 6: Retrieve additional data for AI analysis if enabled
+            if enable_ai:
+                self.jobs[job_id]["progress"] = 0.92
+                # Use RAG pipeline for comprehensive analysis
+                rag_job_id = f"{job_id}_rag"
+                if ai_analysis_type == "project_management":
+                    await self.rag_pipeline.run_project_management_analysis(
+                        job_id=rag_job_id,
+                        focus_area="tasks and issues",
+                        scope=repository_path
+                    )
+                elif ai_analysis_type == "standardization":
+                    await self.rag_pipeline.run_standardization_analysis(
+                        job_id=rag_job_id,
+                        focus_area="code consistency",
+                        scope=repository_path
+                    )
+                elif ai_analysis_type == "documentation":
+                    await self.rag_pipeline.run_documentation_analysis(
+                        job_id=rag_job_id,
+                        focus_area="mkdocs and diagrams",
+                        scope=repository_path
+                    )
+                else:
+                    await self.rag_pipeline.run_rag_analysis(
+                        job_id=rag_job_id,
+                        query=ai_analysis_type,
+                        analysis_type=ai_analysis_type,
+                        scope=repository_path,
+                        custom_prompt=ai_prompt
+                    )
+                
+                rag_results = self.rag_pipeline.get_job_results(rag_job_id)
+                if rag_results:
+                    results["analysis"]["rag_insights"] = rag_results
+                else:
+                    results["analysis"]["rag_insights"] = {"error": "RAG analysis failed or not completed"}
             
             # Complete
             self.jobs[job_id]["status"] = "completed"

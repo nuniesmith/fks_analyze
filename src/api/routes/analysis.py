@@ -9,7 +9,13 @@ from datetime import datetime
 import uuid
 
 from src.services.analyzer import AnalyzerService
-from src.main import get_analyzer
+# Import getter function to avoid circular import
+def get_analyzer():
+    """Get the global analyzer service instance."""
+    from src.main import analyzer_service
+    if analyzer_service is None:
+        raise HTTPException(status_code=503, detail="Analyzer service not initialized")
+    return analyzer_service
 
 router = APIRouter()
 

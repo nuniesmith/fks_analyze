@@ -1,21 +1,23 @@
 """
-Health check endpoints for FKS Analyze Service.
+Standardized health check endpoints for FKS services.
+Implements liveness, readiness, and health probes.
 """
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Dict, Any, Optional
 from datetime import datetime
-from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-@router.get("", status_code=status.HTTP_200_OK)
+@router.get("/health")
 async def health_check() -> Dict[str, Any]:
     """
-    Health check endpoint.
-    
-    Returns:
-        Health status of the service
+    Health check endpoint - liveness probe.
+    Returns basic service health status.
     """
     return {
         "status": "healthy",
@@ -25,16 +27,44 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
-@router.get("/ready", status_code=status.HTTP_200_OK)
+@router.get("/ready")
 async def readiness_check() -> Dict[str, Any]:
     """
     Readiness check endpoint.
+    Verifies service is ready to accept traffic.
+    Checks critical dependencies.
+    """
+    # TODO: Add dependency checks (database, external services, etc.)
+    dependencies_ready = True
+    dependency_status = {}
     
-    Returns:
-        Readiness status of the service
+    # Example: Check database connection
+    # try:
+    #     await check_database()
+    #     dependency_status["database"] = "ready"
+    # except Exception as e:
+    #     dependencies_ready = False
+    #     dependency_status["database"] = f"error: {str(e)}"
+    
+    if not dependencies_ready:
+        raise HTTPException(status_code=503, detail="Service not ready")
+    
+    return {
+        "status": "ready",
+        "service": "fks_analyze",
+        "timestamp": datetime.utcnow().isoformat(),
+        "dependencies": dependency_status
+    }
+
+
+@router.get("/live")
+async def liveness_check() -> Dict[str, Any]:
+    """
+    Liveness probe endpoint.
+    Simple check to verify process is alive.
     """
     return {
-        "ready": True,
+        "status": "alive",
         "service": "fks_analyze",
         "timestamp": datetime.utcnow().isoformat()
     }

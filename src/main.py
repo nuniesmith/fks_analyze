@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 import logging
 
-from src.api.routes import analysis, health
+from src.api.routes import analysis, health, rag
 from src.core.config import get_settings
 from src.services.analyzer import AnalyzerService
 
@@ -57,6 +57,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["analysis"])
+app.include_router(rag.router, prefix="/api/v1/rag", tags=["rag"])
 
 
 @app.get("/")
