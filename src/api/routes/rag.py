@@ -28,32 +28,44 @@ def get_rag_service() -> RAGPipelineService:
     return rag_service
 
 
+# Request/Response Models
 class RAGAnalyzeRequest(BaseModel):
     """Request model for RAG document analysis."""
-    
-    job_id: Optional[str] = Field(default=None, description="Optional job ID (auto-generated if not provided)")
-    query: str = Field(..., description="Query or document description")
-    analysis_type: str = Field(default="project_management", 
-                              description="Type of analysis (project_management, standardization, documentation)")
-    scope: str = Field(default="all", description="Scope of analysis (all, specific repo, or service)")
-    document_content: Optional[str] = Field(default=None, description="Document content to analyze")
-    document_path: Optional[str] = Field(default=None, description="Path to document")
-    document_name: Optional[str] = Field(default=None, description="Document name")
+    query: str = Field(..., description="Analysis query or focus area")
+    analysis_type: str = Field(default="project_management", description="Type of analysis")
+    scope: str = Field(default="all", description="Scope of data retrieval")
+    custom_prompt: Optional[str] = Field(None, description="Custom prompt for AI analysis")
+    max_retrieved: int = Field(default=10, description="Maximum number of items to retrieve")
 
 
 class RAGQueryRequest(BaseModel):
     """Request model for RAG query."""
-    
-    job_id: Optional[str] = Field(default=None, description="Optional job ID (auto-generated if not provided)")
-    query: str = Field(..., description="Query text")
-    analysis_type: str = Field(default="project_management",
-                              description="Type of analysis")
-    scope: str = Field(default="all", description="Scope of data retrieval")
+    query: str = Field(..., description="Natural language question")
+    k: Optional[int] = Field(None, description="Number of documents to retrieve")
+    filter: Optional[Dict[str, Any]] = Field(None, description="Metadata filter for retrieval")
+
+
+class RAGIngestRequest(BaseModel):
+    """Request model for RAG document ingestion."""
+    root_dir: Optional[str] = Field(None, description="Root directory of FKS repos")
+    include_code: bool = Field(default=False, description="Include code files")
+    clear_existing: bool = Field(default=False, description="Clear existing vector store")
+
+
+class RAGOptimizationRequest(BaseModel):
+    """Request model for optimization suggestions."""
+    query: str = Field(..., description="Query about optimizations")
+    context: Optional[str] = Field(None, description="Additional context")
+
+
+class RAGEvaluationRequest(BaseModel):
+    """Request model for RAG evaluation."""
+    queries: List[str] = Field(..., description="List of queries to evaluate")
+    ground_truths: Optional[List[str]] = Field(None, description="Optional ground truth answers")
 
 
 class RAGJobResponse(BaseModel):
     """Response model for RAG job submission."""
-    
     job_id: str
     status: str
     message: str
@@ -61,7 +73,7 @@ class RAGJobResponse(BaseModel):
 
 
 @router.post("/analyze", response_model=RAGJobResponse)
-async def analyze_document(
+async def analyze_rag(
     request: RAGAnalyzeRequest,
     background_tasks: BackgroundTasks,
     rag: RAGPipelineService = Depends(get_rag_service)
@@ -75,23 +87,18 @@ async def analyze_document(
         rag: RAG pipeline service instance
     
     Returns:
-        Job submission response with job_id
+        RAGJobResponse with job ID and status
     """
-    job_id = request.job_id or str(uuid.uuid4())
+    job_id = str(uuid.uuid4())
     
-    # Prepare query
-    query = request.query
-    if request.document_content:
-        query = f"{query}\n\nDocument Content:\n{request.document_content[:5000]}"  # Limit content
-    
-    # Add analysis task to background
     background_tasks.add_task(
         rag.run_rag_analysis,
         job_id=job_id,
-        query=query,
+        query=request.query,
         analysis_type=request.analysis_type,
         scope=request.scope,
-        max_retrieved=10
+        custom_prompt=request.custom_prompt,
+        max_retrieved=request.max_retrieved
     )
     
     return RAGJobResponse(
@@ -102,44 +109,90 @@ async def analyze_document(
     )
 
 
-@router.post("/query", response_model=RAGJobResponse)
+@router.post("/query", response_model=Dict[str, Any])
 async def query_rag(
     request: RAGQueryRequest,
-    background_tasks: BackgroundTasks,
     rag: RAGPipelineService = Depends(get_rag_service)
-) -> RAGJobResponse:
+) -> Dict[str, Any]:
     """
     Query the RAG system with a natural language question.
     
     Args:
         request: RAG query request parameters
+        rag: RAG pipeline service instance
+    
+    Returns:
+        Dictionary with query results and generated response
+    """
+    try:
+        result = rag.query_rag(
+            query=request.query,
+            k=request.k,
+            filter=request.filter
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error querying RAG: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ingest", response_model=Dict[str, Any])
+async def ingest_documents(
+    request: RAGIngestRequest,
+    background_tasks: BackgroundTasks,
+    rag: RAGPipelineService = Depends(get_rag_service)
+) -> Dict[str, Any]:
+    """
+    Ingest documents into the RAG vector store.
+    
+    Args:
+        request: RAG ingestion request parameters
         background_tasks: FastAPI background tasks
         rag: RAG pipeline service instance
     
     Returns:
-        Job submission response with job_id
+        Dictionary with ingestion status
     """
-    job_id = request.job_id or str(uuid.uuid4())
-    
-    # Add query task to background
-    background_tasks.add_task(
-        rag.run_rag_analysis,
-        job_id=job_id,
-        query=request.query,
-        analysis_type=request.analysis_type,
-        scope=request.scope,
-        max_retrieved=10
-    )
-    
-    return RAGJobResponse(
-        job_id=job_id,
-        status="queued",
-        message=f"RAG query job {job_id} queued",
-        timestamp=datetime.utcnow()
-    )
+    try:
+        # Run ingestion in background
+        result = rag.ingest_documents(
+            root_dir=request.root_dir,
+            include_code=request.include_code,
+            clear_existing=request.clear_existing
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error ingesting documents: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/status/{job_id}")
+@router.post("/suggest-optimizations", response_model=Dict[str, Any])
+async def suggest_optimizations(
+    request: RAGOptimizationRequest,
+    rag: RAGPipelineService = Depends(get_rag_service)
+) -> Dict[str, Any]:
+    """
+    Suggest optimizations based on RAG query.
+    
+    Args:
+        request: Optimization request parameters
+        rag: RAG pipeline service instance
+    
+    Returns:
+        Dictionary with optimization suggestions
+    """
+    try:
+        result = rag.suggest_optimizations(
+            query=request.query,
+            context=request.context
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error generating optimizations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs/{job_id}", response_model=Dict[str, Any])
 async def get_rag_status(
     job_id: str,
     rag: RAGPipelineService = Depends(get_rag_service)
@@ -148,24 +201,22 @@ async def get_rag_status(
     Get RAG job status.
     
     Args:
-        job_id: Job identifier
+        job_id: RAG job identifier
         rag: RAG pipeline service instance
     
     Returns:
         Current status of the RAG job
     """
     status = rag.get_job_status(job_id)
-    
-    if status is None:
+    if not status:
         raise HTTPException(
             status_code=404,
             detail=f"RAG job {job_id} not found"
         )
-    
     return status
 
 
-@router.get("/results/{job_id}")
+@router.get("/jobs/{job_id}/results", response_model=Dict[str, Any])
 async def get_rag_results(
     job_id: str,
     rag: RAGPipelineService = Depends(get_rag_service)
@@ -174,24 +225,22 @@ async def get_rag_results(
     Get RAG job results.
     
     Args:
-        job_id: Job identifier
+        job_id: RAG job identifier
         rag: RAG pipeline service instance
     
     Returns:
         RAG analysis results
     """
     results = rag.get_job_results(job_id)
-    
-    if results is None:
+    if not results:
         raise HTTPException(
             status_code=404,
             detail=f"Results for RAG job {job_id} not found"
         )
-    
     return results
 
 
-@router.get("/jobs")
+@router.get("/jobs", response_model=List[Dict[str, Any]])
 async def list_rag_jobs(
     rag: RAGPipelineService = Depends(get_rag_service)
 ) -> List[Dict[str, Any]]:
@@ -207,7 +256,7 @@ async def list_rag_jobs(
     return rag.list_jobs()
 
 
-@router.delete("/jobs/{job_id}")
+@router.delete("/jobs/{job_id}", response_model=Dict[str, str])
 async def delete_rag_job(
     job_id: str,
     rag: RAGPipelineService = Depends(get_rag_service)
@@ -216,19 +265,107 @@ async def delete_rag_job(
     Delete a RAG job and its results.
     
     Args:
-        job_id: Job identifier
+        job_id: RAG job identifier
         rag: RAG pipeline service instance
     
     Returns:
-        Deletion confirmation
+        Success message
     """
     success = rag.delete_job(job_id)
-    
     if not success:
         raise HTTPException(
             status_code=404,
             detail=f"RAG job {job_id} not found"
         )
-    
     return {"message": f"RAG job {job_id} deleted successfully"}
 
+
+@router.get("/stats", response_model=Dict[str, Any])
+async def get_rag_stats(
+    rag: RAGPipelineService = Depends(get_rag_service)
+) -> Dict[str, Any]:
+    """
+    Get RAG system statistics.
+    
+    Args:
+        rag: RAG pipeline service instance
+    
+    Returns:
+        RAG system statistics including vector store stats and usage
+    """
+    return rag.get_rag_stats()
+
+
+@router.get("/health", response_model=Dict[str, Any])
+async def rag_health(
+    rag: RAGPipelineService = Depends(get_rag_service)
+) -> Dict[str, Any]:
+    """
+    Health check for RAG system.
+    
+    Args:
+        rag: RAG pipeline service instance
+    
+    Returns:
+        Health status of RAG system
+    """
+    stats = rag.get_rag_stats()
+    return {
+        "status": "healthy" if stats.get("status") != "not_available" else "degraded",
+        "rag_available": stats.get("status") != "not_available",
+        "stats": stats,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.post("/evaluate", response_model=Dict[str, Any])
+async def evaluate_rag(
+    request: RAGEvaluationRequest,
+    rag: RAGPipelineService = Depends(get_rag_service)
+) -> Dict[str, Any]:
+    """
+    Evaluate RAG system using RAGAS metrics.
+    
+    Args:
+        request: RAG evaluation request with queries and optional ground truths
+        rag: RAG pipeline service instance
+    
+    Returns:
+        Dictionary with evaluation scores and metrics
+    """
+    try:
+        from src.rag.evaluation.ragas_eval import RAGASEvaluator
+        from src.rag.query_service import RAGQueryService
+        from src.rag.config import RAGConfig
+        from src.rag.vector_store import VectorStoreManager
+        
+        # Get RAG components from pipeline service
+        config = RAGConfig()
+        vector_store = rag.vector_store if hasattr(rag, 'vector_store') else None
+        
+        if vector_store is None:
+            # Initialize vector store if not available
+            vector_store = VectorStoreManager(config)
+        
+        query_service = RAGQueryService(config, vector_store)
+        evaluator = RAGASEvaluator(config, query_service)
+        
+        # Run evaluation
+        results = evaluator.evaluate_rag(
+            queries=request.queries,
+            ground_truths=request.ground_truths
+        )
+        
+        return {
+            "evaluation": results,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except ImportError as e:
+        logger.warning(f"RAGAS evaluation not available: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="RAGAS evaluation framework not available. Install with: pip install ragas datasets"
+        )
+    except Exception as e:
+        logger.error(f"Error evaluating RAG: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
