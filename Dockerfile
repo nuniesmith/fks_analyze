@@ -23,46 +23,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy dependency files
 COPY requirements.txt ./
 
-# Install Python dependencies
-# The staged approach helps pip resolve dependencies more efficiently
-# by installing compatible packages together and reducing backtracking
-
-# Stage 1: Install core web framework packages first (stable, well-defined deps)
+# Install Python dependencies from requirements.txt
+# Using requirements.txt with version constraints to avoid resolution issues
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location \
-    fastapi "uvicorn[standard]" pydantic pydantic-settings python-multipart \
-    typer pyyaml tqdm prometheus-client "httpx>=0.26.0,<0.29.0" "redis>=5.0.0,<8.0.0" \
-    json5==0.9.24 loguru markdown python-docx
-
-# Stage 2: Install Google Cloud packages (pinned for compatibility)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location \
-    google-cloud-aiplatform==1.43.0
-
-# Stage 3: Install LangChain packages (complex dependency tree)
-# Install core langchain packages together to allow pip to resolve dependencies
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location \
-    "langchain>=0.3.0" \
-    "langchain-community>=0.3.0" \
-    "langchain-core>=0.3.0" \
-    "langchain-text-splitters>=0.3.0"
-
-# Stage 4: Install LangChain integrations
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location \
-    "langchain-google-genai>=1.0.0,<4.0.0" \
-    "google-generativeai>=0.3.0,<1.0.0" \
-    "langchain-ollama>=0.1.0,<0.2.0" \
-    "ollama>=0.1.0"
-
-# Stage 5: Install heavy packages (chromadb, sentence-transformers, pypdf)
-# These take the longest to build/install
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location \
-    "chromadb>=0.4.0,<0.5.0" \
-    "sentence-transformers>=2.2.0,<6.0.0" \
-    "pypdf>=3.17.0,<7.0.0"
+    python -m pip install --user --no-warn-script-location -r requirements.txt
 
 # Runtime stage
 FROM python:3.12-slim
