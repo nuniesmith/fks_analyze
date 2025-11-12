@@ -9,9 +9,9 @@ WORKDIR /app
 COPY requirements.txt ./
 
 # Install Python dependencies with BuildKit cache mount
-# Use --no-cache-dir to reduce disk usage in CI
+# Install system-wide (not --user) so we can copy to runtime stage easily
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location --no-cache-dir -r requirements.txt \
+    python -m pip install --no-warn-script-location --no-cache-dir -r requirements.txt \
     && python -m pip cache purge || true \
     && rm -rf /root/.cache/pip/* /tmp/pip-* 2>/dev/null || true
 
@@ -24,9 +24,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     SERVICE_NAME=fks_analyze \
     SERVICE_PORT=8008 \
-    PYTHONPATH=/app/src:/app:/home/appuser/.local/lib/python3.12/site-packages \
-    PYTHONUSERBASE=/home/appuser/.local \
-    PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONPATH=/app/src:/app \
+    PATH=/usr/local/bin:$PATH \
     GOOGLE_CLOUD_PROJECT="" \
     GOOGLE_CLOUD_LOCATION="us-central1" \
     GOOGLE_AI_MODEL="gemini-1.0-pro"
@@ -47,9 +46,19 @@ RUN useradd -u 1000 -m -s /bin/bash appuser
 RUN --mount=type=bind,from=builder,source=/usr/lib,target=/tmp/ta-lib \
     sh -c 'if ls /tmp/ta-lib/libta_lib.so* 1> /dev/null 2>&1; then cp /tmp/ta-lib/libta_lib.so* /usr/lib/; fi' || true
 
-# Copy Python packages from builder with correct ownership
-# Using --chown avoids the need for recursive chown later
-COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+# Copy Python packages from builder (system-wide installation)
+# Create directory first, then copy
+RUN mkdir -p /usr/local/lib/python3.12/site-packages
+COPY --from=builder --chown=appuser:appuser /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+
+# Copy Python executables (uvicorn, etc.) if they exist
+RUN --mount=type=bind,from=builder,source=/usr/local/bin,target=/tmp/builder-bin \
+    if [ -d /tmp/builder-bin ]; then \
+        cp -r /tmp/builder-bin/* /usr/local/bin/ 2>/dev/null || true; \
+    fi || true
+
+# Verify uvicorn is accessible
+RUN python3 -c "import uvicorn; print(f'✅ uvicorn found: {uvicorn.__file__}')" || echo "⚠️  uvicorn verification failed"
 
 # Copy application source with correct ownership
 COPY --chown=appuser:appuser src/ ./src/
