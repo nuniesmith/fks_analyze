@@ -1,33 +1,19 @@
 # Multi-stage build for fks_analyze Python service
-FROM python:3.12-slim AS builder
+# Uses ML base image with LangChain, ChromaDB, and sentence-transformers pre-installed
+FROM nuniesmith/fks:docker-ml AS builder
 
 WORKDIR /app
 
-# Install build dependencies needed for chromadb, sentence-transformers, etc.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    make \
-    cmake \
-    git \
-    pkg-config \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip, setuptools, and wheel first (better caching)
-# Using BuildKit cache mount for faster pip downloads (requires DOCKER_BUILDKIT=1)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --upgrade pip setuptools wheel
-
-# Copy dependency files
+# ML packages (langchain, chromadb, sentence-transformers, ollama) are already installed in base
+# Just install service-specific packages (Google Cloud, document loaders, etc.)
 COPY requirements.txt ./
 
-# Install Python dependencies from requirements.txt
-# Using requirements.txt with version constraints to avoid resolution issues
+# Install Python dependencies with BuildKit cache mount
 # Use --no-cache-dir to reduce disk usage in CI
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location --no-cache-dir -r requirements.txt
+    python -m pip install --user --no-warn-script-location --no-cache-dir -r requirements.txt \
+    && python -m pip cache purge || true \
+    && rm -rf /root/.cache/pip/* /tmp/pip-* 2>/dev/null || true
 
 # Runtime stage
 FROM python:3.12-slim

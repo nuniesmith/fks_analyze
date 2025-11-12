@@ -11,29 +11,27 @@ prometheus-client>=0.23.1
 httpx>=0.26.0,<0.29.0
 redis>=5.0.0,<8.0.0
 
-# Google Cloud (pinned for compatibility)
+# Note: The following packages are already installed in the ML base image (nuniesmith/fks:docker-ml):
+# - langchain>=0.3.0,<0.4.0
+# - langchain-core>=0.3.0,<0.4.0
+# - langchain-community>=0.3.0,<0.4.0
+# - langchain-text-splitters>=0.3.0,<0.4.0
+# - chromadb>=0.4.0,<1.0.0
+# - sentence-transformers>=2.2.0,<6.0.0
+# - ollama>=0.1.0,<1.0.0
+# - langchain-ollama>=0.1.0,<2.0.0
+# - numpy>=1.26.0,<2.0.0
+# - pandas>=2.2.0
+
+# Google Cloud (not in base image)
 google-cloud-aiplatform>=1.43.0,<2.0.0
 json5>=0.9.24,<1.0.0
 
-# RAG Core - LangChain (pinned to compatible versions)
-langchain>=0.3.0,<0.4.0
-langchain-community>=0.3.0,<0.4.0
-langchain-core>=0.3.0,<0.4.0
-langchain-text-splitters>=0.3.0,<0.4.0
-
-# Vector Store
-chromadb>=0.4.0,<1.0.0
-
-# Embeddings - Gemini API
+# Embeddings - Gemini API (not in base image)
 langchain-google-genai>=1.0.0,<4.0.0
 google-generativeai>=0.3.0,<1.0.0
 
-# Embeddings - Local (Ollama)
-sentence-transformers>=2.2.0,<6.0.0
-ollama>=0.1.0,<1.0.0
-langchain-ollama>=0.1.0,<2.0.0
-
-# Document Loaders
+# Document Loaders (not in base image)
 pypdf>=3.17.0,<7.0.0
 python-docx>=1.2.0
 markdown>=3.10
