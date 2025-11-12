@@ -24,7 +24,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     SERVICE_NAME=fks_analyze \
     SERVICE_PORT=8008 \
-    PYTHONPATH=/app/src:/app \
+    PYTHONPATH=/app/src:/app:/home/appuser/.local/lib/python3.12/site-packages \
+    PYTHONUSERBASE=/home/appuser/.local \
     PATH=/home/appuser/.local/bin:$PATH \
     GOOGLE_CLOUD_PROJECT="" \
     GOOGLE_CLOUD_LOCATION="us-central1" \
@@ -40,6 +41,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user FIRST (before copying files)
 # This ensures proper ownership from the start
 RUN useradd -u 1000 -m -s /bin/bash appuser
+
+# Copy TA-Lib libraries from builder (needed at runtime)
+# Note: Files may not exist if base image doesn't have TA-Lib installed
+RUN --mount=type=bind,from=builder,source=/usr/lib,target=/tmp/ta-lib \
+    sh -c 'if ls /tmp/ta-lib/libta_lib.so* 1> /dev/null 2>&1; then cp /tmp/ta-lib/libta_lib.so* /usr/lib/; fi' || true
 
 # Copy Python packages from builder with correct ownership
 # Using --chown avoids the need for recursive chown later
