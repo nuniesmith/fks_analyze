@@ -35,11 +35,11 @@ COPY --chown=appuser:appuser entrypoint.sh ./
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
+# Verify uvicorn is accessible (before switching user)
+RUN python3 -c "import uvicorn; print(f'✅ uvicorn found: {uvicorn.__file__}')" || echo "⚠️  uvicorn verification failed"
+
 # Switch to non-root user
 USER appuser
-
-# Verify uvicorn is accessible
-RUN python3 -c "import uvicorn; print(f'✅ uvicorn found: {uvicorn.__file__}')" || echo "⚠️  uvicorn verification failed"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
