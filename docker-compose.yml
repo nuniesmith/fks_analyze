@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: nuniesmith/fks_analyze:latest
+    image: nuniesmith/fks:analyze-latest
     container_name: fks_analyze
     ports:
       - "8080:8080"
