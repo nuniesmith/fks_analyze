@@ -25,12 +25,18 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     && python -m pip cache purge || true \
     && rm -rf /root/.cache/pip/* /tmp/pip-* 2>/dev/null || true
 
+# Create non-root user if it doesn't exist
+RUN id -u appuser 2>/dev/null || useradd -u 1000 -m -s /bin/bash appuser
+
 # Copy application source
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser entrypoint.sh ./
 
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh
+
+# Switch to non-root user
+USER appuser
 
 # Verify uvicorn is accessible
 RUN python3 -c "import uvicorn; print(f'✅ uvicorn found: {uvicorn.__file__}')" || echo "⚠️  uvicorn verification failed"
