@@ -1,59 +1,8 @@
-# Optimized multi-stage build for fks_analyze Python service
-# Key optimizations:
-# 1. Remove unnecessary files after installation (__pycache__, tests, docs)
-# 2. Clean up chromadb, sentence-transformers, and google-cloud cache
-# 3. Better layer caching and cleanup
-# 4. Strip unnecessary model files if not needed
-
-FROM python:3.12-slim AS builder
+# Optimized Dockerfile for fks_analyze - Uses base image directly to reduce size
+# Uses ML base image with all dependencies pre-installed
+FROM nuniesmith/fks:docker-ml-latest
 
 WORKDIR /app
-
-# Install build dependencies needed for chromadb, sentence-transformers, etc.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    make \
-    cmake \
-    git \
-    pkg-config \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip, setuptools, and wheel first (better caching)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --upgrade pip setuptools wheel
-
-# Copy dependency files
-COPY requirements.txt ./
-
-# Install Python dependencies from requirements.txt
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m pip install --user --no-warn-script-location --no-cache-dir -r requirements.txt
-
-# Strip unnecessary files from installed packages
-# Remove __pycache__, tests, docs, and other unnecessary files
-RUN find /root/.local/lib/python*/site-packages -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type f -name "*.pyc" -delete 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type f -name "*.pyo" -delete 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type d -name "test" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type d -name "*.tests" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type f -name "*.md" -delete 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type f -name "*.txt" -not -name "METADATA" -delete 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type f -name "LICENSE*" -delete 2>/dev/null || true \
-    && find /root/.local/lib/python*/site-packages -type f -name "CHANGELOG*" -delete 2>/dev/null || true \
-    && rm -rf /root/.cache/pip/* /tmp/pip-* 2>/dev/null || true \
-    && rm -rf /root/.cache/huggingface 2>/dev/null || true \
-    && rm -rf /root/.cache/chromadb 2>/dev/null || true \
-    && rm -rf /root/.cache/google-cloud 2>/dev/null || true
-
-# Runtime stage
-FROM python:3.12-slim
 
 # Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -62,33 +11,29 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     SERVICE_NAME=fks_analyze \
     SERVICE_PORT=8008 \
     PYTHONPATH=/app/src:/app \
-    PATH=/home/appuser/.local/bin:$PATH \
+    PATH=/usr/local/bin:$PATH \
     GOOGLE_CLOUD_PROJECT="" \
     GOOGLE_CLOUD_LOCATION="us-central1" \
     GOOGLE_AI_MODEL="gemini-1.0-pro"
 
-WORKDIR /app
+# Install only service-specific packages
+# Base image already has: langchain, chromadb, sentence-transformers, ollama, TA-Lib, numpy, pandas, httpx
+COPY requirements.txt ./
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --no-cache-dir -r requirements.txt \
+    && python -m pip cache purge || true \
+    && rm -rf /root/.cache/pip/* /tmp/pip-* 2>/dev/null || true
 
-# Create non-root user FIRST (before copying files)
-RUN useradd -u 1000 -m -s /bin/bash appuser
-
-# Copy Python packages from builder with correct ownership
-COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
-
-# Copy application source with correct ownership
+# Copy application source
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser entrypoint.sh ./
 
-# Make entrypoint executable (already owned by appuser from COPY --chown)
+# Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
-# Switch to non-root user
-USER appuser
+# Verify uvicorn is accessible
+RUN python3 -c "import uvicorn; print(f'✅ uvicorn found: {uvicorn.__file__}')" || echo "⚠️  uvicorn verification failed"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
@@ -102,4 +47,3 @@ EXPOSE 8008
 
 # Use entrypoint script
 ENTRYPOINT ["./entrypoint.sh"]
-
